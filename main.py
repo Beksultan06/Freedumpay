@@ -2,7 +2,8 @@ import os, requests, logging
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from dotenv import load_dotenv
-from database import add_subscriber, is_subscriber, update_remaining_downloads, get_remaining_downloads
+from db.database import add_subscriber, is_subscriber, update_remaining_downloads, get_remaining_downloads
+from button.buttons import tarif, keyboard, monthly_button1, vip_button, fifteen_downloads_button, five_downloads_button
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -17,10 +18,8 @@ async def start(message: types.Message):
     chat_id = message.chat.id
     if not is_subscriber(chat_id):
         add_subscriber(chat_id)
-        bonus_button = InlineKeyboardButton("Бонусы", callback_data="bonus")
-        tariff_button = InlineKeyboardButton("Тарифы", callback_data="tariff")
-        keyboard = InlineKeyboardMarkup().add(bonus_button, tariff_button)
-        await bot.send_message(chat_id=chat_id, text="Привет! Вы получаете 3 бесплатных скачивания после нажатия кнопки 'Бонусы' или можете ознакомиться с нашими тарифами.", reply_markup=keyboard)
+        
+        await bot.send_message(chat_id=chat_id, text="Привет! Вы получаете 3 бесплатных скачивания после нажатия кнопки 'Бонусы' или можете ознакомиться с нашими тарифами.", reply_markup=tarif)
     else:
         await show_tariffs(chat_id)
 
@@ -64,11 +63,6 @@ async def handle_material_link(message: types.Message):
 async def buy(message: types.Message):
     try:
         chat_id = message.chat.id
-        monthly_button = InlineKeyboardButton("Подписка на месяц - 400 сом", callback_data="subscribe_monthly")
-        vip_button = InlineKeyboardButton("VIP подписка - 1000 сом", callback_data="subscribe_vip")
-        five_downloads_button = InlineKeyboardButton("5 скачиваний - 100 сом", callback_data="download_5")
-        fifteen_downloads_button = InlineKeyboardButton("15 скачиваний - 250 сом", callback_data="download_15")
-        keyboard = InlineKeyboardMarkup().row(monthly_button, vip_button).row(five_downloads_button, fifteen_downloads_button)
         await bot.send_message(chat_id=chat_id, text="Выберите тариф:", reply_markup=keyboard)
     except Exception as e:
         logger.error(f"Ошибка в обработке команды /buy: {e}")
@@ -141,14 +135,8 @@ async def cancel_confirmation(chat_id, message_id):
     await bot.edit_message_text(chat_id=chat_id, message_id=message_id, text="Выберите тариф:", reply_markup=create_tariff_keyboard())
 
 def create_tariff_keyboard():
-    monthly_button = InlineKeyboardButton("Подписка на месяц - 400 сом", callback_data="subscribe_monthly")
-    vip_button = InlineKeyboardButton("VIP подписка - 1000 сом", callback_data="subscribe_vip")
-    five_downloads_button = InlineKeyboardButton("5 скачиваний - 100 сом", callback_data="download_5")
-    fifteen_downloads_button = InlineKeyboardButton("15 скачиваний - 250 сом", callback_data="download_15")
-    return InlineKeyboardMarkup().row(monthly_button, vip_button).row(five_downloads_button, fifteen_downloads_button)
+
+    return InlineKeyboardMarkup().row(monthly_button1, vip_button).row(five_downloads_button, fifteen_downloads_button)
 
 async def error_handler(update, exception):
     logger.error(f"Update {update} caused error: {exception}")
-
-
-
