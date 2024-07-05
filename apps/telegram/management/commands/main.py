@@ -1,12 +1,12 @@
+import requests
 from aiogram import types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.dispatcher import FSMContext
 from asgiref.sync import sync_to_async
 from apps.telegram.buttons.buttons import subscription_kb, get_tariff_kb
 from apps.telegram.models import UserDownload
-import requests
 from .bot import dp
-from apps.telegram.downloader import download_file  # Добавьте этот импорт
+from apps.telegram.downloader import download_file
 
 async def start_command(message: types.Message, state: FSMContext):
     user, created = await sync_to_async(UserDownload.objects.get_or_create)(user_id=message.from_user.id)
@@ -32,13 +32,16 @@ async def handle_link(message: types.Message, state: FSMContext):
     user = await sync_to_async(UserDownload.objects.get)(user_id=message.from_user.id)
     if user.download_count == 0:
         file_url = message.text
-        await state.update_data(file_url=file_url)
-        kb = InlineKeyboardMarkup(row_width=2)
-        kb.add(
-            InlineKeyboardButton("Просто исходники", callback_data='download_without_license'),
-            InlineKeyboardButton("С лицензией", callback_data='download_with_license')
-        )
-        await message.answer("Вам нужна дополнительно лицензия к исходникам?", reply_markup=kb)
+        if "elements.envato.com" in file_url:
+            await state.update_data(file_url=file_url)
+            kb = InlineKeyboardMarkup(row_width=2)
+            kb.add(
+                InlineKeyboardButton("Просто исходники", callback_data='download_without_license'),
+                InlineKeyboardButton("С лицензией", callback_data='download_with_license')
+            )
+            await message.answer("Вам нужна дополнительно лицензия к исходникам?", reply_markup=kb)
+        else:
+            await message.answer("Пожалуйста, введите действительную ссылку на элементы Envato.")
     else:
         await message.answer("У вас закончились скачивания/подписка 😢\nНо вы можете приобрести её, используя команду /pay")
 
@@ -119,12 +122,16 @@ async def handle_pay(message: types.Message):
     kb = await get_tariff_kb()
     await message.answer(tariffs_text, reply_markup=kb)
 
-async def handle_support(callback_query: types.CallbackQuery):
+async def handle_support(callback_query_or_message: types.CallbackQuery | types.Message):
     support_text = "Текущий агент поддержки на связи: @admin"
     print("Handling support callback")
     kb = InlineKeyboardMarkup().row(InlineKeyboardButton("Назад", callback_data='back'))
-    await callback_query.message.edit_text(support_text, reply_markup=kb)
-    await callback_query.answer()
+    
+    if isinstance(callback_query_or_message, types.CallbackQuery):
+        await callback_query_or_message.message.edit_text(support_text, reply_markup=kb)
+        await callback_query_or_message.answer()
+    else:
+        await callback_query_or_message.answer(support_text, reply_markup=kb)
 
 async def handle_back(callback_query: types.CallbackQuery):
     print("Handling back callback")
@@ -177,13 +184,14 @@ async def handle_sub_end(message: types.Message):
 
 def register_handlers(dp):
     dp.register_message_handler(start_command, commands=['start'])
-    dp.register_message_handler(handle_link, content_types=['text'])
     dp.register_message_handler(handle_pay, commands=['pay'])
     dp.register_message_handler(handle_sub_end, commands=['sub_end'])
+    dp.register_message_handler(handle_support, commands=['support'])  # Добавляем команду /support
+    dp.register_message_handler(handle_link, content_types=['text'])
     dp.register_callback_query_handler(handle_tariffs, text='tariffs')
     dp.register_callback_query_handler(handle_bonuses, text='bonuses')
     dp.register_callback_query_handler(handle_current_subscription, text='current_subscription')
-    dp.register_callback_query_handler(handle_support, text='support')
+    dp.register_callback_query_handler(handle_support, text='support')  # Добавляем обработчик кнопки 'support'
     dp.register_callback_query_handler(handle_back, text='back')
     dp.register_callback_query_handler(handle_subscribe_month, text='subscribe_month')
     dp.register_callback_query_handler(handle_subscribe_vip, text='subscribe_vip')
