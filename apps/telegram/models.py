@@ -7,3 +7,13 @@ class Subscription(models.Model):
 
     def __str__(self):
         return self.name
+    
+    # class Meta:
+    #     verbose_name_plural = ''
+
+class UserDownload(models.Model):
+    user_id = models.BigIntegerField(unique=True)
+    download_count = models.IntegerField(default=0)
+
+    # class MEta:
+    #     verbose_name_plural = ''

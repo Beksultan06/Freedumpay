@@ -32,20 +32,3 @@ async def get_tariff_kb():
         InlineKeyboardButton("Назад", callback_data='back')
     )
     return kb
-
-# Кнопки для подписки
-def get_subscription_options_kb():
-    kb = InlineKeyboardMarkup(row_width=1)
-    kb.row(
-        InlineKeyboardButton("Подписка на месяц", callback_data='subscribe_month'),
-    )
-    kb.row(
-        InlineKeyboardButton("Подписка на VIP", callback_data='subscribe_vip')
-    )
-    kb.row(
-        InlineKeyboardButton("Пакет", callback_data='subscribe_package')
-    )
-    kb.row(
-        InlineKeyboardButton("Назад", callback_data='back')
-    )
-    return kb
