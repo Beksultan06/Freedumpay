@@ -4,9 +4,9 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.dispatcher import FSMContext
 from asgiref.sync import sync_to_async
 from apps.telegram.buttons.buttons import subscription_kb, get_tariff_kb
+from apps.telegram.downloader import download_file
 from apps.telegram.models import UserDownload
 from .bot import dp
-from apps.telegram.downloader import download_file
 
 async def start_command(message: types.Message, state: FSMContext):
     user, created = await sync_to_async(UserDownload.objects.get_or_create)(user_id=message.from_user.id)
@@ -51,7 +51,7 @@ async def download_file_handler(callback_query: types.CallbackQuery, with_licens
     file_url = data.get('file_url')
     if file_url:
         try:
-            print("\n\n\n\n\n\n\n\n\n\n\n\n Попытка скачать \n\n\n\n\n\n\n\n\n\n\n")
+            print("\n\n\n\n\ Попытка скачать \n\n\n\n")
             file_path = download_file(file_url)
             if file_path:
                 with open(file_path, 'rb') as file:
@@ -62,13 +62,13 @@ async def download_file_handler(callback_query: types.CallbackQuery, with_licens
                 await sync_to_async(user.save)()
             else:
                 await callback_query.message.answer("Не удалось скачать файл. Пожалуйста, проверьте ссылку и попробуйте снова.")
-                print("\n\n\n\n\n\n\n\n\n\n\n\n не удалось скачать \n\n\n\n\n\n\n\n\n\n\n")
+                print("\n\n\n\n не удалось скачать \n\n\n\n")
         except Exception as e:
             await callback_query.message.answer(f"Не удалось скачать файл. Ошибка: {e}")
-            print(f"\n\n\n\n\n\n\n\n\n\n\n\n не удалось скачать. Ошибка: {e} \n\n\n\n\n\n\n\n\n\n\n")
+            print(f"\n\n\n\n не удалось скачать. Ошибка: {e} \n\n\n")
     else:
         await callback_query.message.answer("Не удалось найти файл. Пожалуйста, попробуйте снова.")
-        print("\n\n\n\n\n\n\n\n\n\n\n\n не удалось скачать2 \n\n\n\n\n\n\n\n\n\n\n")
+        print("\n\n\n не удалось скачать2 \n\n\n")
     await callback_query.answer()
 
 async def download_without_license(callback_query: types.CallbackQuery):
