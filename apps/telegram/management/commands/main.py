@@ -4,9 +4,9 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.dispatcher import FSMContext
 from asgiref.sync import sync_to_async
 from apps.telegram.buttons.buttons import subscription_kb, get_tariff_kb
-from apps.telegram.downloader import download_file
 from apps.telegram.models import UserDownload
 from .bot import dp
+
 
 async def start_command(message: types.Message, state: FSMContext):
     user, created = await sync_to_async(UserDownload.objects.get_or_create)(user_id=message.from_user.id)
@@ -28,6 +28,7 @@ async def start_command(message: types.Message, state: FSMContext):
         )
     await message.answer(welcome_text, reply_markup=subscription_kb)
 
+
 async def handle_link(message: types.Message, state: FSMContext):
     user = await sync_to_async(UserDownload.objects.get)(user_id=message.from_user.id)
     if user.download_count == 0:
@@ -45,34 +46,41 @@ async def handle_link(message: types.Message, state: FSMContext):
     else:
         await message.answer("У вас закончились скачивания/подписка 😢\nНо вы можете приобрести её, используя команду /pay")
 
+
 async def download_file_handler(callback_query: types.CallbackQuery, with_license: bool):
     state = dp.current_state(user=callback_query.from_user.id)
     data = await state.get_data()
     file_url = data.get('file_url')
+
     if file_url:
         try:
-            print("\n\n\n\n\ Попытка скачать \n\n\n\n")
-            file_path = download_file(file_url)
-            if file_path:
-                with open(file_path, 'rb') as file:
-                    caption = "Ваш файл был загружен с лицензией." if with_license else "Ваш файл был загружен."
-                    await callback_query.message.answer_document(file, caption=caption)
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Referer': 'https://elements.envato.com/',
+                'Origin': 'https://elements.envato.com'
+            }
+            response = requests.get(file_url, headers=headers, allow_redirects=True)
+
+            if response.status_code == 200:
+                # Предполагаем, что в теле ответа содержится ссылка на прямую загрузку файла
+                direct_link = response.url
+                await callback_query.message.answer(f"Ваша прямая ссылка на файл: {direct_link}")
+
                 user = await sync_to_async(UserDownload.objects.get)(user_id=callback_query.from_user.id)
-                user.download_count += 1
+                user.download_count += 1 
                 await sync_to_async(user.save)()
             else:
-                await callback_query.message.answer("Не удалось скачать файл. Пожалуйста, проверьте ссылку и попробуйте снова.")
-                print("\n\n\n\n не удалось скачать \n\n\n\n")
+                await callback_query.message.answer(f"Не удалось получить прямую ссылку. Ошибка code: {response.status_code}")
         except Exception as e:
-            await callback_query.message.answer(f"Не удалось скачать файл. Ошибка: {e}")
-            print(f"\n\n\n\n не удалось скачать. Ошибка: {e} \n\n\n")
+            await callback_query.message.answer(f"Не удалось получить прямую ссылку. Ошибка e: {e}")
     else:
         await callback_query.message.answer("Не удалось найти файл. Пожалуйста, попробуйте снова.")
-        print("\n\n\n не удалось скачать2 \n\n\n")
     await callback_query.answer()
+
 
 async def download_without_license(callback_query: types.CallbackQuery):
     await download_file_handler(callback_query, with_license=False)
+
 
 async def download_with_license(callback_query: types.CallbackQuery):
     await download_file_handler(callback_query, with_license=True)
@@ -85,14 +93,12 @@ async def handle_tariffs(callback_query: types.CallbackQuery):
         "ПАКЕТЫ:\n"
         "• 10 скачиваний: 100 сом."
     )
-    print("Handling tariffs callback")
     kb = await get_tariff_kb()
     await callback_query.message.edit_text(tariffs_text, reply_markup=kb)
     await callback_query.answer()
 
 async def handle_bonuses(callback_query: types.CallbackQuery):
     bonuses_text = "Вы уже получили бесплатное скачивание за подписку на группу!"
-    print("Handling bonuses callback")
     kb = InlineKeyboardMarkup().row(InlineKeyboardButton("Назад", callback_data='back'))
     await callback_query.message.edit_text(bonuses_text, reply_markup=kb)
     await callback_query.answer()
@@ -104,7 +110,6 @@ async def handle_current_subscription(callback_query: types.CallbackQuery):
 Больше информации в команде /pay
 
 Чтобы отвязать карту и завершить подписку: /sub_end"""
-    print("Handling current subscription callback")
     kb = InlineKeyboardMarkup().row(InlineKeyboardButton("Назад", callback_data='back'))
     await callback_query.message.edit_text(current_subscription_text, reply_markup=kb)
     await callback_query.answer()
@@ -124,7 +129,6 @@ async def handle_pay(message: types.Message):
 
 async def handle_support(callback_query_or_message: types.CallbackQuery | types.Message):
     support_text = "Текущий агент поддержки на связи: @admin"
-    print("Handling support callback")
     kb = InlineKeyboardMarkup().row(InlineKeyboardButton("Назад", callback_data='back'))
     
     if isinstance(callback_query_or_message, types.CallbackQuery):
@@ -134,7 +138,6 @@ async def handle_support(callback_query_or_message: types.CallbackQuery | types.
         await callback_query_or_message.answer(support_text, reply_markup=kb)
 
 async def handle_back(callback_query: types.CallbackQuery):
-    print("Handling back callback")
     await callback_query.message.edit_text("Добро пожаловать в Download Bot!\n\n"
                                            "Бот предназначен для монтажеров, графических дизайнеров, моушн дизайнеров, фотографам "
                                            "а также программистам, которые создают сайты.\n\n"

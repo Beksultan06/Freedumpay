@@ -16,4 +16,4 @@ class UserDownload(models.Model):
     download_count = models.IntegerField(default=0)
 
     # class MEta:
-    #     verbose_name_plural = ''
+    #     verbose_name_plural = ''  
