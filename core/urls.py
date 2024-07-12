@@ -21,7 +21,7 @@ from django.conf import settings
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('download/', include('apps.telegram.urls')),
+
 ]
 
 

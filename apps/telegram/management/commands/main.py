@@ -6,8 +6,12 @@ from asgiref.sync import sync_to_async
 from apps.telegram.buttons.buttons import subscription_kb, get_tariff_kb
 from apps.telegram.models import UserDownload
 from .bot import dp
+import logging
 
 
+logging.basicConfig(level=logging.INFO)
+
+# Начальная команда /start
 async def start_command(message: types.Message, state: FSMContext):
     user, created = await sync_to_async(UserDownload.objects.get_or_create)(user_id=message.from_user.id)
     if created or user.download_count == 0:
@@ -19,6 +23,7 @@ async def start_command(message: types.Message, state: FSMContext):
             "Мы дарим вам 1 пробную загрузку, чтобы вы могли проверить наш сервис\n\n"
             "(ссылка) Envato Elements"
         )
+        logging.info("Работает")
     else:
         welcome_text = (
             "Добро пожаловать в Download Bot!\n\n"
@@ -26,72 +31,17 @@ async def start_command(message: types.Message, state: FSMContext):
             "Вы можете приобрести подписку, чтобы продолжить скачивание.\n\n"
             "Используйте команду /pay для покупки подписки."
         )
+        logging.info("Работает")
     await message.answer(welcome_text, reply_markup=subscription_kb)
 
-
-async def handle_link(message: types.Message, state: FSMContext):
-    user = await sync_to_async(UserDownload.objects.get)(user_id=message.from_user.id)
-    if user.download_count == 0:
-        file_url = message.text
-        if "elements.envato.com" in file_url:
-            await state.update_data(file_url=file_url)
-            kb = InlineKeyboardMarkup(row_width=2)
-            kb.add(
-                InlineKeyboardButton("Просто исходники", callback_data='download_without_license'),
-                InlineKeyboardButton("С лицензией", callback_data='download_with_license')
-            )
-            await message.answer("Вам нужна дополнительно лицензия к исходникам?", reply_markup=kb)
-        else:
-            await message.answer("Пожалуйста, введите действительную ссылку на элементы Envato.")
-    else:
-        await message.answer("У вас закончились скачивания/подписка 😢\nНо вы можете приобрести её, используя команду /pay")
-
-
-async def download_file_handler(callback_query: types.CallbackQuery, with_license: bool):
-    state = dp.current_state(user=callback_query.from_user.id)
-    data = await state.get_data()
-    file_url = data.get('file_url')
-
-    if file_url:
-        try:
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                'Referer': 'https://elements.envato.com/',
-                'Origin': 'https://elements.envato.com'
-            }
-            response = requests.get(file_url, headers=headers, allow_redirects=True)
-
-            if response.status_code == 200:
-                # Предполагаем, что в теле ответа содержится ссылка на прямую загрузку файла
-                direct_link = response.url
-                await callback_query.message.answer(f"Ваша прямая ссылка на файл: {direct_link}")
-
-                user = await sync_to_async(UserDownload.objects.get)(user_id=callback_query.from_user.id)
-                user.download_count += 1 
-                await sync_to_async(user.save)()
-            else:
-                await callback_query.message.answer(f"Не удалось получить прямую ссылку. Ошибка code: {response.status_code}")
-        except Exception as e:
-            await callback_query.message.answer(f"Не удалось получить прямую ссылку. Ошибка e: {e}")
-    else:
-        await callback_query.message.answer("Не удалось найти файл. Пожалуйста, попробуйте снова.")
-    await callback_query.answer()
-
-
-async def download_without_license(callback_query: types.CallbackQuery):
-    await download_file_handler(callback_query, with_license=False)
-
-
-async def download_with_license(callback_query: types.CallbackQuery):
-    await download_file_handler(callback_query, with_license=True)
-
+# Остальные функции
 async def handle_tariffs(callback_query: types.CallbackQuery):
     tariffs_text = (
         "ПОДПИСКИ:\n"
-        "• Месяц: 500 сом. (до 30 скачиваний в день)\n"
-        "• Месяц VIP: 1000 сом. (до 100 скачиваний в день)\n\n"
+        "• Месяц: 799 р. (до 20 скачиваний в день)\n"
+        "• 👑Месяц VIP: 1880 р. (до 100 скачиваний в день)\n\n"
         "ПАКЕТЫ:\n"
-        "• 10 скачиваний: 100 сом."
+        "• 20 скачиваний: 599 р."
     )
     kb = await get_tariff_kb()
     await callback_query.message.edit_text(tariffs_text, reply_markup=kb)
@@ -185,12 +135,12 @@ async def handle_subscribe_package(callback_query: types.CallbackQuery):
 async def handle_sub_end(message: types.Message):
     await message.answer("Ваша подписка была отменена!")
 
+# Регистрация обработчиков
 def register_handlers(dp):
     dp.register_message_handler(start_command, commands=['start'])
     dp.register_message_handler(handle_pay, commands=['pay'])
     dp.register_message_handler(handle_sub_end, commands=['sub_end'])
     dp.register_message_handler(handle_support, commands=['support'])  # Добавляем команду /support
-    dp.register_message_handler(handle_link, content_types=['text'])
     dp.register_callback_query_handler(handle_tariffs, text='tariffs')
     dp.register_callback_query_handler(handle_bonuses, text='bonuses')
     dp.register_callback_query_handler(handle_current_subscription, text='current_subscription')
@@ -199,5 +149,3 @@ def register_handlers(dp):
     dp.register_callback_query_handler(handle_subscribe_month, text='subscribe_month')
     dp.register_callback_query_handler(handle_subscribe_vip, text='subscribe_vip')
     dp.register_callback_query_handler(handle_subscribe_package, text='subscribe_package')
-    dp.register_callback_query_handler(download_without_license, text='download_without_license')
-    dp.register_callback_query_handler(download_with_license, text='download_with_license')
